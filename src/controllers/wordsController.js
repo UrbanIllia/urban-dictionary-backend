@@ -3,7 +3,16 @@ const pool = require('../db');
 const getAllWords = async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM words WHERE user_id = $1 ORDER BY id',
+      `SELECT
+    id,
+    word,
+    translation,
+    learned,
+    it,
+    irregular_verb AS "irregularVerb"
+  FROM words
+  WHERE user_id = $1
+  ORDER BY id`,
       [req.session.userId]
     );
 
@@ -19,7 +28,7 @@ const getAllWords = async (req, res) => {
 
 // POST /api/words — post word .................................................................
 const createWord = async (req, res) => {
-  const { word, translation, learned, it } = req.body;
+  const { word, translation, learned, it, irregularVerb } = req.body;
 
   if (
     typeof word !== 'string' ||
@@ -27,7 +36,8 @@ const createWord = async (req, res) => {
     !word.trim() ||
     !translation.trim() ||
     (learned !== undefined && typeof learned !== 'boolean') ||
-    (it !== undefined && typeof it !== 'boolean')
+    (it !== undefined && typeof it !== 'boolean') ||
+    (irregularVerb !== undefined && typeof irregularVerb !== 'boolean')
   ) {
     return res.status(400).json({
       message: 'Invalid word data',
@@ -36,14 +46,21 @@ const createWord = async (req, res) => {
 
   try {
     const result = await pool.query(
-      `INSERT INTO words (word, translation, learned, it, user_id)
-   VALUES ($1, $2, $3, $4, $5)
-   RETURNING *`,
+      `INSERT INTO words (word, translation, learned, it, irregular_verb, user_id)
+   VALUES ($1, $2, $3, $4, $5, $6)
+   RETURNING
+  id,
+  word,
+  translation,
+  learned,
+  it,
+  irregular_verb AS "irregularVerb"`,
       [
         word.trim(),
         translation.trim(),
         learned ?? false,
         it ?? false,
+        irregularVerb ?? false,
         req.session.userId,
       ]
     );
@@ -61,7 +78,7 @@ const createWord = async (req, res) => {
 // PUT /api/words/:id — edit word by id.................................................................
 const updateWord = async (req, res) => {
   const id = Number(req.params.id);
-  const { word, translation, learned, it } = req.body;
+  const { word, translation, learned, it, irregularVerb } = req.body;
 
   // Проверяем ID
   if (!Number.isInteger(id) || id <= 0) {
@@ -77,7 +94,8 @@ const updateWord = async (req, res) => {
     !word.trim() ||
     !translation.trim() ||
     typeof learned !== 'boolean' ||
-    typeof it !== 'boolean'
+    typeof it !== 'boolean' ||
+    typeof irregularVerb !== 'boolean'
   ) {
     return res.status(400).json({
       message: 'Invalid word data',
@@ -87,10 +105,24 @@ const updateWord = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE words
-   SET word = $1, translation = $2, learned = $3, it = $4
-   WHERE id = $5 AND user_id = $6
-   RETURNING *`,
-      [word.trim(), translation.trim(), learned, it, id, req.session.userId]
+   SET word = $1, translation = $2, learned = $3, it = $4, irregular_verb = $5
+   WHERE id = $6 AND user_id = $7
+   RETURNING
+  id,
+  word,
+  translation,
+  learned,
+  it,
+  irregular_verb AS "irregularVerb"`,
+      [
+        word.trim(),
+        translation.trim(),
+        learned,
+        it,
+        irregularVerb,
+        id,
+        req.session.userId,
+      ]
     );
 
     if (result.rows.length === 0) {
